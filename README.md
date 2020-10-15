@@ -10,3 +10,7 @@ public class Steam {
     public static final String API_KEY = "APIKEYHERE";
 }
 ```
+
+# Current Bugs
+Currently doesn't download players inventory, even if players inventory is marked public.
+Access to Item Schema is gated behind use of a Steam_API key, used to not be needed.
