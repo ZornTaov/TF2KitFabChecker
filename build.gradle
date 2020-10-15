@@ -1,0 +1,23 @@
+plugins {
+    id 'java'
+}
+apply plugin: 'application'
+group 'org.zornco.tf2kitfabchecker'
+version '1.0-SNAPSHOT'
+mainClassName = 'org.zornco.tf2kitfabchecker.TF2KitFabChecker'
+
+repositories {
+    mavenCentral()
+    flatDir {
+        dirs 'libs'
+    }
+}
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs << "-Xlint:unchecked" << "-Xlint:deprecation"
+}
+dependencies {
+
+    implementation name: 'json-simple-1.1.1'
+    testImplementation group: 'junit', name: 'junit', version: '4.12'
+}

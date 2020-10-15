@@ -1,0 +1,30 @@
+logs/
+log.txt
+.idea/
+util/
+
+# eclipse
+bin
+*.launch
+.settings
+.metadata
+.classpath
+.project
+
+# idea
+out
+*.ipr
+*.iws
+*.iml
+.idea
+
+# gradle
+build
+.gradle
+
+# other
+eclipse
+run
+
+# hide API_KEY, remake this file to compile
+/src/main/java/org/zornco/tf2kitfabchecker/Steam.java
