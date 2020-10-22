@@ -171,18 +171,31 @@ public class TF2KitFabChecker extends JFrame
                 if (!inventoryCache.exists() || this.forcedUpdateBox.isSelected()) {
                     this.downloadFile(inventoryCache, "http://steamcommunity.com/" + type + "/" + profile + "/inventory/json/440/2");
                 }
-                File itemSchema = new File(TF2KitFabChecker.PATH + "/itemschema.json");
-                if (!itemSchema.exists() || this.forcedUpdateBox.isSelected()) {
-                    this.downloadFile(itemSchema, "http://api.steampowered.com/IEconItems_440/GetSchemaItems/v0001/?key=" + Steam.API_KEY);
-                }
                 this.forcedUpdateBox.setSelected(false);
 
                 JSONObject inventoryCacheJobj = this.readFile(inventoryCache, parser);
-                JSONObject itemSchemaJobj = this.readFile(itemSchema, parser);
-                JSONObject result = (JSONObject) itemSchemaJobj.get("result");
-                JSONArray items = (JSONArray) result.get("items");
 
-                if ((boolean)inventoryCacheJobj.get("success") && (long)((JSONObject)itemSchemaJobj.get("result")).get("status") == 1) {
+                long nextIndex = 0;
+                JSONObject result;
+                List<JSONObject> items = new ArrayList<>();
+                do {
+
+                    File itemSchema = new File(TF2KitFabChecker.PATH + "/itemschema"+nextIndex+".json");
+                    if (!itemSchema.exists() || this.forcedUpdateBox.isSelected()) {
+                        this.downloadFile(itemSchema, "http://api.steampowered.com/IEconItems_440/GetSchemaItems/v1/?key=" + Steam.API_KEY + "&start="+nextIndex);
+                    }
+                    JSONObject itemSchemaJobj = this.readFile(itemSchema, parser);
+                    result = (JSONObject) itemSchemaJobj.get("result");
+                    JSONArray subItems = (JSONArray) result.get("items");
+                    for (Object o :
+                            subItems) {
+                        items.add((JSONObject)o);
+                    }
+                    nextIndex = result.get("next") != null?(Long)result.get("next"):-1;
+                }
+                while (result.get("next") != null);
+
+                if ((boolean)inventoryCacheJobj.get("success") ) {
                     clearPartsInInv();
                     ArrayList<KitPanel> kits = new ArrayList<>();
                     ArrayList<KitPanel> kitsCanMake = new ArrayList<>();
@@ -220,10 +233,14 @@ public class TF2KitFabChecker extends JFrame
                                     kit3.addPart(split[0], TF2KitFabChecker.PARTS_IN_INV.get(split[0]), Integer.parseInt(split[1]));
                                 }
                             }
-                            JSONObject found = this.containsName(Arrays.asList(items.toArray()), item2.get("market_hash_name").toString()
-                                    .replace("Specialized Killstreak ", "")
-                                    .replace("Professional Killstreak ", "")
-                                    .replace(" Kit Fabricator", ""));
+                            JSONObject found = this.containsDefIndex(items, ((JSONObject)item2.get("app_data")).get("def_index").toString());
+
+                            if (found == null) {
+                                found = this.containsName(items, item2.get("market_hash_name").toString()
+                                        .replace("Specialized Killstreak ", "")
+                                        .replace("Professional Killstreak ", "")
+                                        .replace(" Kit Fabricator", ""));
+                            }
                             if (found != null) {
                                 makeIcon(item2.get("market_hash_name").toString()
                                         .replace("Specialized Killstreak ", "")
@@ -325,10 +342,13 @@ public class TF2KitFabChecker extends JFrame
         this.collectionPanel.repaint();
     }
     
-    public JSONObject containsName(List<Object> list, final String name) {
-        return (JSONObject) list.stream().filter(o -> ((JSONObject)o).get("name").toString().contains(name)).findFirst().orElse(null);
+    public JSONObject containsDefIndex(List<JSONObject> list, final String name) {
+        return list.stream().filter(o -> (o).get("defindex").toString().equals(name)).findFirst().orElse(null);
     }
-    
+
+    public JSONObject containsName(List<JSONObject> list, final String name) {
+        return list.stream().filter(o -> (o).get("name").toString().contains(name)).findFirst().orElse(null);
+    }
     private static void makeIcon(final String name, final String url) throws IOException {
         final File img = new File(TF2KitFabChecker.PATH + "/" + name + ".png");
         if (!img.exists()) {
