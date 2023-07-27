@@ -1,5 +1,7 @@
 package org.zornco.tf2kitfabchecker;
 
+import java.io.*;
+import java.net.HttpURLConnection;
 import java.security.CodeSource;
 import java.net.URISyntaxException;
 import java.util.*;
@@ -9,25 +11,21 @@ import java.util.logging.Logger;
 import java.awt.EventQueue;
 import java.awt.image.BufferedImage;
 import javax.imageio.ImageIO;
-import java.io.OutputStream;
-import java.io.InputStream;
 import java.net.URLConnection;
-import java.io.FileOutputStream;
-import java.io.BufferedInputStream;
 import java.net.URL;
-import java.io.FileReader;
 import java.util.regex.Matcher;
-import java.io.IOException;
+
 import org.json.simple.parser.ParseException;
 
 import java.awt.Color;
 
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
-import java.io.File;
+
 import java.awt.GridBagConstraints;
 import org.json.simple.parser.JSONParser;
 
+import javax.net.ssl.HttpsURLConnection;
 import javax.swing.*;
 import java.awt.Dimension;
 import java.awt.GridLayout;
@@ -166,10 +164,26 @@ public class TF2KitFabChecker extends JFrame
                     this.postErrorLabel("MALFORMED URL " + e2, gbc);
                     return;
                 }
+                if(type.equals("id"))
+                {
+                    final URL url = new URL("http://api.steampowered.com/ISteamUser/ResolveVanityURL/v0001/?key="+Steam.API_KEY+"&vanityurl="+profile);
+                    try (final InputStreamReader in = new InputStreamReader(url.openStream())){
+                        JSONObject parse = (JSONObject)parser.parse(in);
+
+                        JSONObject response = (JSONObject) parse.get("response");
+                        profile = response.get("steamid").toString();
+                    }
+                }
+
+
+
+
+
+
                 this.prefs.put("lastUser", this.userText.getText());
                 File inventoryCache = new File(TF2KitFabChecker.PATH + "/" + type + "/" + profile + ".json");
                 if (!inventoryCache.exists() || this.forcedUpdateBox.isSelected()) {
-                    this.downloadFile(inventoryCache, "http://steamcommunity.com/" + type + "/" + profile + "/inventory/json/440/2");
+                    this.downloadFile(inventoryCache, "https://steamcommunity.com/inventory/" + profile + "/440/2?l=english&count=5000");
                 }
                 this.forcedUpdateBox.setSelected(false);
 
@@ -194,33 +208,31 @@ public class TF2KitFabChecker extends JFrame
                     nextIndex = result.get("next") != null?(Long)result.get("next"):-1;
                 }
                 while (result.get("next") != null);
-
-                if ((boolean)inventoryCacheJobj.get("success") ) {
+                Object success = inventoryCacheJobj.get("success");
+                if ((Long) success == 1) {
                     clearPartsInInv();
                     ArrayList<KitPanel> kits = new ArrayList<>();
                     ArrayList<KitPanel> kitsCanMake = new ArrayList<>();
-                    JSONObject map = (JSONObject)inventoryCacheJobj.get("rgInventory");
-                    for (Object o : map.keySet()) {
-                        String next = o.toString();
-                        JSONObject item = (JSONObject) map.get(next);
+                    JSONArray map = (JSONArray)inventoryCacheJobj.get("assets");
+                    for (Object o : map) {
+                        JSONObject item = (JSONObject)o;
                         if (item.containsKey("classid") && TF2KitFabChecker.ROBOT_PARTS.containsKey(item.get("classid").toString())) {
                             int j = TF2KitFabChecker.PARTS_IN_INV.get(TF2KitFabChecker.ROBOT_PARTS.get(item.get("classid").toString())) + 1;
                             TF2KitFabChecker.PARTS_IN_INV.put(TF2KitFabChecker.ROBOT_PARTS.get(item.get("classid").toString()), j);
                         }
                     }
-                    JSONObject map2 = (JSONObject)inventoryCacheJobj.get("rgDescriptions");
+                    JSONArray map2 = (JSONArray)inventoryCacheJobj.get("descriptions");
                     int kitCount = 0;
                     int count = 0;
                     this.jProgressBar1.setMaximum(map2.size());
                     this.jProgressBar1.setValue(count);
                     this.jProgressBar1.setStringPainted(true);
-                    for (Object o : map2.keySet()) {
+                    for (Object o : map2) {
                         count++;
                         this.jProgressBar1.setValue(count);
                         this.revalidate();
                         this.repaint();
-                        String next2 = o.toString();
-                        JSONObject item2 = (JSONObject) map2.get(next2);
+                        JSONObject item2 = (JSONObject)o;
                         if (item2.get("market_hash_name").toString().contains("Fabricator")) {
                             KitPanel kit3 = new KitPanel();
                             kit3.nameLabel.setText(item2.get("market_hash_name").toString());
@@ -233,14 +245,17 @@ public class TF2KitFabChecker extends JFrame
                                     kit3.addPart(split[0], TF2KitFabChecker.PARTS_IN_INV.get(split[0]), Integer.parseInt(split[1]));
                                 }
                             }
-                            JSONObject found = this.containsDefIndex(items, ((JSONObject)item2.get("app_data")).get("def_index").toString());
+                            // no longer works
+                            JSONObject found = null;//this.containsDefIndex(items, ((JSONObject)item2.get("app_data")).get("def_index").toString());
 
+                            // should always work?
                             if (found == null) {
                                 found = this.containsName(items, item2.get("market_hash_name").toString()
                                         .replace("Specialized Killstreak ", "")
                                         .replace("Professional Killstreak ", "")
                                         .replace(" Kit Fabricator", ""));
                             }
+                            //backup
                             if (found != null) {
                                 makeIcon(item2.get("market_hash_name").toString()
                                         .replace("Specialized Killstreak ", "")
@@ -307,12 +322,28 @@ public class TF2KitFabChecker extends JFrame
         }
         return obj;
     }
-    
+    public long getFileSize(URL url) {
+        HttpURLConnection conn = null;
+        try {
+            conn = (HttpURLConnection) url.openConnection();
+            conn.setRequestMethod("HEAD");
+            return conn.getContentLengthLong();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        } finally {
+            if (conn != null) {
+                conn.disconnect();
+            }
+        }
+    }
     private void downloadFile(final File file, final String u) throws IOException {
         final URL url = new URL(u);
-        final URLConnection connection = url.openConnection();
+        final HttpsURLConnection connection = (HttpsURLConnection) url.openConnection();
         connection.connect();
+        int code = connection.getResponseCode();
         final long lengthOfFile = connection.getContentLengthLong();
+        if(lengthOfFile <= 0)
+            throw new IOException("Length of downloaded file at \"" + u + "\" is " + lengthOfFile);
 
         this.jProgressBar1.setStringPainted(true);
         this.jProgressBar1.setString(file.getName());

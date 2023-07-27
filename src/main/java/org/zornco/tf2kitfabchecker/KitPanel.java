@@ -4,24 +4,22 @@
 
 package org.zornco.tf2kitfabchecker;
 
-import javax.swing.LayoutStyle;
-import javax.swing.GroupLayout;
+import javax.swing.*;
 import java.awt.GridLayout;
 import java.awt.Font;
 import java.awt.LayoutManager;
 import java.awt.Container;
-import javax.swing.OverlayLayout;
-import javax.swing.BorderFactory;
-import javax.swing.Icon;
 import java.awt.Component;
+import java.awt.Desktop;
+import java.net.URI;
+import java.awt.event.ActionEvent;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.io.File;
 import java.awt.Color;
-import javax.swing.JLabel;
 import java.awt.GridBagConstraints;
-import javax.swing.JPanel;
 
 public class KitPanel extends JPanel
 {
@@ -30,6 +28,7 @@ public class KitPanel extends JPanel
     int canMake;
     public JPanel iconPanel;
     public JLabel kitIcon;
+    public JButton nameButton;
     public JLabel nameLabel;
     private JPanel partList;
     public JLabel weaponIcon;
@@ -68,17 +67,33 @@ public class KitPanel extends JPanel
             file = new File(TF2KitFabChecker.IMG_PATHS.get(type));
             ic = new ResizeableIcon(file, 100, 100);
             this.kitIcon.setIcon(ic);
+
+            nameButton.setActionCommand(type +" "+ weapon);
         }
         catch (IOException ex) {
             Logger.getLogger(KitPanel.class.getName()).log(Level.SEVERE, null, ex);
         }
     }
-    
+
+    private void searchMarket(final ActionEvent evt) {
+        String name = evt.getActionCommand();
+        name = name.replace(" ", "%20");
+        if (Desktop.getDesktop().isSupported(Desktop.Action.BROWSE)) {
+            try {
+                Desktop.getDesktop().browse(new URI("https://steamcommunity.com/market/search?appid=440&q=" + name));
+            } catch (IOException | URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
     private void initComponents() {
         this.iconPanel = new JPanel();
         this.weaponIcon = new JLabel();
         this.kitIcon = new JLabel();
+        this.nameButton = new JButton();
         this.nameLabel = new JLabel();
+        this.nameButton.add(nameLabel);
+        this.nameButton.addActionListener(KitPanel.this::searchMarket);
         this.partList = new JPanel();
         this.setBorder(BorderFactory.createBevelBorder(0));
         this.iconPanel.setLayout(new OverlayLayout(this.iconPanel));
@@ -90,7 +105,19 @@ public class KitPanel extends JPanel
         this.partList.setLayout(new GridLayout(0, 1, 0, -5));
         final GroupLayout layout = new GroupLayout(this);
         this.setLayout(layout);
-        layout.setHorizontalGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING).addGroup(layout.createSequentialGroup().addComponent(this.iconPanel, -2, 100, -2).addPreferredGap(LayoutStyle.ComponentPlacement.RELATED).addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING).addComponent(this.nameLabel, -1, 211, 32767).addComponent(this.partList, -1, -1, 32767))));
-        layout.setVerticalGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING).addGroup(layout.createSequentialGroup().addContainerGap().addComponent(this.nameLabel).addPreferredGap(LayoutStyle.ComponentPlacement.RELATED).addComponent(this.partList, -1, 42, 32767)).addComponent(this.iconPanel, -1, -1, 32767));
+        layout.setHorizontalGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addComponent(this.iconPanel, -2, 100, -2)
+                .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
+                .addGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+                    .addComponent(this.nameButton, -1, 211, 32767)
+                    .addComponent(this.partList, -1, -1, 32767))));
+        layout.setVerticalGroup(layout.createParallelGroup(GroupLayout.Alignment.LEADING)
+            .addGroup(layout.createSequentialGroup()
+                .addContainerGap()
+                .addComponent(this.nameButton)
+                .addPreferredGap(LayoutStyle.ComponentPlacement.RELATED)
+                .addComponent(this.partList, -1, 42, 32767))
+            .addComponent(this.iconPanel, -1, -1, 32767));
     }
 }
